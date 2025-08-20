@@ -47,20 +47,25 @@ async def estimate(
     front_path = _save(front, "front")
     back_path = _save(back, "back")
 
-    # TODO: Replace this stub with your real model inference pipeline.
-    # For now, return a sane placeholder so the frontend can integrate immediately.
-    # You can attach logs/telemetry here as needed.
-    subgrades = {
-        "centering": 9.0,
-        "corners": 8.5,
-        "edges": 9.0,
-        "surface": 8.5,
-    }
+    from app.engine.model import predict
 
+@router.post("/estimate", response_model=EstimateResponse)
+async def estimate(front: UploadFile = File(...), back: UploadFile = File(...), card_meta: Optional[str] = Form(None)):
+    ...
+    # Save files → front_path, back_path
+    result = predict(front_path, back_path)
+
+    # Unpack result into grade + subgrades
+    subgrades = {
+        "centering": float(result["centering"]),
+        "corners": float(result["corners"]),
+        "edges": float(result["edges"]),
+        "surface": float(result["surface"]),
+    }
     payload = EstimateResponse(
         request_id=req_id,
-        estimated_grade=8.8,
+        estimated_grade=float(result["overall"]),
         subgrades=subgrades,
-        notes="Placeholder estimate. Connect to model inference for live results."
+        notes="Deep Scan model inference"
     )
     return JSONResponse(content=payload.model_dump())
