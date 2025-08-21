@@ -1,3 +1,41 @@
+# top of file
+import os, logging
+log = logging.getLogger("uvicorn.error")
+
+# inside your router post handler right before the try/except
+use_stub = os.getenv("USE_STUB", "true").lower() in ("1","true","yes")
+engine = "stub" if use_stub else "deep_scan"
+
+try:
+    if use_stub:
+        overall, subs, note = _stub_result()
+        log.info("Estimate engine=stub")
+    else:
+        from app.engine.model import predict
+        out = predict(front_path, back_path)
+        overall = float(out["overall"])
+        subs = {
+            "centering": float(out["centering"]),
+            "corners":   float(out["corners"]),
+            "edges":     float(out["edges"]),
+            "surface":   float(out["surface"]),
+        }
+        note = "Deep Scan model inference"
+        log.info("Estimate engine=deep_scan ok")
+except Exception as e:
+    log.exception(f"[{req_id}] Inference failed")
+    raise HTTPException(status_code=500, detail=f"Inference error: {type(e).__name__}: {e}")
+
+payload = EstimateResponse(
+    request_id=req_id,
+    estimated_grade=overall,
+    subgrades=subs,
+    notes=note
+).model_dump()
+payload["engine"] = engine  # <— add this line
+
+return JSONResponse(content=payload)
+
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
